@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10131d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VOICE FX">
+<meta name="description" content="VOICE FX — record, transform and share your voice.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>VOICE FX — Voice Studio</title>
+<style>
+:root{color-scheme:dark;--bg:#10131d;--panel:#191f2d;--muted:#9ca8bd;--accent:#7c8cff;--line:#2a3448}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#252e51 0,transparent 38%),var(--bg);color:#f5f7ff;font:16px system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+main{width:min(720px,100%);margin:auto;padding:calc(22px + env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}.brand{font-weight:850;letter-spacing:.12em;font-size:19px}.tag{color:var(--muted);font-size:12px}
+h1{font-size:clamp(27px,7vw,38px);line-height:1.05;margin:10px 0}.intro{color:var(--muted);line-height:1.5;margin:0 0 22px}
+.panel{background:linear-gradient(160deg,#1c2435,#151b28);border:1px solid var(--line);border-radius:22px;padding:18px;margin:14px 0;box-shadow:0 12px 35px #0003}
+.panel h2{font-size:16px;margin:0 0 14px}.status{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:13px;margin-bottom:14px}.time{margin-left:auto;font-variant-numeric:tabular-nums;color:#e5e9ff;font-weight:700}.dot{width:9px;height:9px;border-radius:50%;background:#67738a}.dot.live{background:#ff596b;box-shadow:0 0 0 5px #ff596b22}
+button,select{font:inherit}button{border:0;border-radius:14px;padding:13px 16px;font-weight:750;cursor:pointer;color:#fff;background:#303a51}button:disabled{opacity:.4;cursor:not-allowed}.primary{background:linear-gradient(120deg,#6578ff,#9868ff);width:100%;font-size:16px}.recordrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stop{background:#8b3446}.small{font-size:13px;color:var(--muted);line-height:1.45}
+.effects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.effect{padding:13px;text-align:left;border:1px solid var(--line);background:#202a3d;border-radius:14px}.effect[aria-pressed=true]{border-color:var(--accent);background:#30365a;box-shadow:inset 0 0 0 1px var(--accent)}.effect strong{display:block;font-size:14px}.effect span{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+audio{width:100%;margin:8px 0 2px}.hidden{display:none!important}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.secondary{background:#303a51}.notice{border-left:3px solid #d5a64e;padding:9px 12px;background:#3a3021;color:#f1d9a8;border-radius:8px;font-size:12px;line-height:1.45;margin-top:12px}
+footer{text-align:center;color:#76839a;font-size:11px;padding:16px}
+@media(max-width:380px){.effects{grid-template-columns:1fr}.panel{padding:15px}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="brand">VOICE FX</div><div class="tag">PROTOTYPE · v0.2.1</div></header>
+<h1>Your voice.<br>Different character.</h1>
+<p class="intro">Record a short clip, choose an effect, preview the result, then share it. Processing happens on this device.</p>
+
+<section class="panel">
+  <h2>1 · Record your voice</h2>
+  <div class="status"><span id="dot" class="dot"></span><span id="status">Ready — microphone permission is needed when you start.</span><span class="time" id="elapsed">00:00</span></div>
+  <div class="recordrow">
+    <button id="record" class="primary">● Start recording</button>
+    <button id="stop" class="stop" disabled>■ Stop</button>
+  </div>
+  <p class="small">Record up to 60 seconds per clip. For the first test, use 5–10 seconds in a quiet room and keep this page open.</p>
+</section>
+
+<section class="panel">
+  <h2>2 · Choose a voice effect</h2>
+  <div class="effects" id="effects">
+    <button class="effect" data-effect="natural" aria-pressed="true"><strong>Natural</strong><span>Original voice, light clarity</span></button>
+    <button class="effect" data-effect="deep" aria-pressed="false"><strong>Deep voice</strong><span>Lower pitch, slightly longer clip</span></button>
+    <button class="effect" data-effect="high" aria-pressed="false"><strong>High voice</strong><span>Higher pitch, slightly shorter clip</span></button>
+    <button class="effect" data-effect="robot" aria-pressed="false"><strong>Robot</strong><span>Modulated robotic tone</span></button>
+    <button class="effect" data-effect="echo" aria-pressed="false"><strong>Echo</strong><span>Repeating delay effect</span></button>
+    <button class="effect" data-effect="radio" aria-pressed="false"><strong>Radio</strong><span>Band-limited radio sound</span></button>
+  </div>
+  <button id="process" class="primary" style="margin-top:14px" disabled>Apply effect to recording</button>
+  <p class="small">Deep and High currently change pitch by changing playback speed, so the clip duration changes too. Formant-preserving pitch shifting is a later upgrade.</p>
+</section>
+
+<section class="panel">
+  <h2>3 · Preview and share</h2>
+  <p class="small" id="resultHint">Your processed recording will appear here.</p>
+  <audio id="preview" controls playsinline preload="metadata" class="hidden"></audio>
+  <div class="actions">
+    <button id="share" class="secondary" disabled>Share audio</button>
+    <button id="download" class="secondary" disabled>Save audio</button>
+  </div>
+  <div class="notice">WhatsApp sharing depends on your phone and browser. It may send an audio file attachment, not WhatsApp’s native press-and-hold voice-note bubble.</div>
+</section>
+
+<footer>VOICE FX · Local prototype · v0.2.1</footer>
+</main>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const recordBtn = $("record"), stopBtn = $("stop"), processBtn = $("process");
+  const status = $("status"), dot = $("dot"), preview = $("preview");
+  const MAX_RECORD_SECONDS = 60;
+  let stream = null, recorder = null, chunks = [], rawBlob = null;
+  let outputBlob = null, outputUrl = null, selected = "natural";
+  let busy = false, startedAt = 0, recordTimer = null;
+
+  function setStatus(message, recording = false) {
+    status.textContent = message;
+    dot.classList.toggle("live", recording);
+  }
+  function formatTime(seconds) {
+    const whole = Math.max(0, Math.floor(seconds));
+    return String(Math.floor(whole / 60)).padStart(2, "0") + ":" + String(whole % 60).padStart(2, "0");
+  }
+  function updateElapsed() {
+    const seconds = (Date.now() - startedAt) / 1000;
+    $("elapsed").textContent = formatTime(seconds);
+    if (seconds >= MAX_RECORD_SECONDS) stopRecording(true);
+  }
+  function stopTracks() {
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  function clearProcessed() {
+    if (outputUrl) URL.revokeObjectURL(outputUrl);
+    outputUrl = null;
+    outputBlob = null;
+    preview.pause();
+    preview.removeAttribute("src");
+    preview.load();
+    preview.classList.add("hidden");
+    $("share").disabled = true;
+    $("download").disabled = true;
+    $("resultHint").textContent = rawBlob ? "Recording captured. Choose an effect, then apply it." : "Your processed recording will appear here.";
+  }
+  function setEffect(name) {
+    if (busy) return;
+    selected = name;
+    document.querySelectorAll(".effect").forEach(button => {
+      button.setAttribute("aria-pressed", String(button.dataset.effect === name));
+    });
+    clearProcessed();
+    processBtn.disabled = !rawBlob;
+  }
+  document.querySelectorAll(".effect").forEach(button => {
+    button.addEventListener("click", () => setEffect(button.dataset.effect));
+  });
+  function bestMime() {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+    const choices = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+    return choices.find(type => MediaRecorder.isTypeSupported(type)) || "";
+  }
+  function resetForNewRecording() {
+    rawBlob = null;
+    chunks = [];
+    clearProcessed();
+    processBtn.disabled = true;
+    $("elapsed").textContent = "00:00";
+  }
+  function stopRecording(autoStopped = false) {
+    if (!recorder || recorder.state === "inactive") return;
+    if (recordTimer) clearInterval(recordTimer);
+    recordTimer = null;
+    stopBtn.disabled = true;
+    recordBtn.disabled = true;
+    setStatus(autoStopped ? "60-second recording limit reached. Finishing…" : "Finishing recording…");
+    try { recorder.stop(); }
+    catch (error) {
+      stopTracks();
+      recordBtn.disabled = false;
+      setStatus("Could not finish recording: " + error.message);
+    }
+  }
+
+  recordBtn.addEventListener("click", async () => {
+    if (busy || (recorder && recorder.state !== "inactive")) return;
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setStatus("Recording is not supported here. Open this page in current Safari or Chrome over HTTPS.");
+      return;
+    }
+    // Lock the control before opening the permission prompt. iOS Safari can
+    // leave that prompt visible for several seconds; without this guard a
+    // second tap could start a second microphone request.
+    recordBtn.disabled = true;
+    setStatus("Requesting microphone permission…");
+    resetForNewRecording();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: { ideal: 1 } }
+      });
+      const mime = bestMime();
+      recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      recorder.addEventListener("dataavailable", event => {
+        if (event.data && event.data.size) chunks.push(event.data);
+      });
+      recorder.addEventListener("error", event => {
+        if (recordTimer) clearInterval(recordTimer);
+        recordTimer = null;
+        stopTracks();
+        recordBtn.disabled = false;
+        stopBtn.disabled = true;
+        setStatus("Recording error: " + (event.error?.message || "the browser stopped recording"));
+      }, { once: true });
+      recorder.addEventListener("stop", () => {
+        if (recordTimer) clearInterval(recordTimer);
+        recordTimer = null;
+        const mimeType = recorder.mimeType || chunks.find(chunk => chunk.type)?.type || "application/octet-stream";
+        rawBlob = new Blob(chunks, { type: mimeType });
+        stopTracks();
+        recordBtn.disabled = false;
+        stopBtn.disabled = true;
+        if (!rawBlob.size) {
+          processBtn.disabled = true;
+          setStatus("No audio was captured. Check microphone permission and try again.");
+          $("resultHint").textContent = "The recording was empty. Please record again.";
+          return;
+        }
+        processBtn.disabled = false;
+        $("resultHint").textContent = "Recording captured (" + (rawBlob.size / 1024).toFixed(0) + " KB). Choose an effect, then apply it.";
+        setStatus("Recording ready — choose an effect and apply it.");
+      }, { once: true });
+      recorder.start(250);
+      startedAt = Date.now();
+      recordBtn.disabled = true;
+      stopBtn.disabled = false;
+      processBtn.disabled = true;
+      setStatus("Recording… speak now.", true);
+      updateElapsed();
+      recordTimer = setInterval(updateElapsed, 250);
+    } catch (error) {
+      stopTracks();
+      recordBtn.disabled = false;
+      stopBtn.disabled = true;
+      const message = error.name === "NotAllowedError"
+        ? "Microphone permission was denied. Allow microphone access in browser settings, then try again."
+        : error.name === "NotFoundError"
+          ? "No microphone was found on this device."
+          : "Could not start microphone: " + error.message;
+      setStatus(message);
+    }
+  });
+  stopBtn.addEventListener("click", () => stopRecording(false));
+
+  function makeWav(buffer) {
+    const channels = buffer.numberOfChannels;
+    if (channels < 1 || channels > 2) throw new Error("This recording has an unsupported channel layout.");
+    const rate = buffer.sampleRate, frames = buffer.length;
+    const dataBytes = frames * channels * 2;
+    const arrayBuffer = new ArrayBuffer(44 + dataBytes), view = new DataView(arrayBuffer);
+    const writeText = (offset, value) => {
+      for (let index = 0; index < value.length; index++) view.setUint8(offset + index, value.charCodeAt(index));
+    };
+    writeText(0, "RIFF"); view.setUint32(4, 36 + dataBytes, true);
+    writeText(8, "WAVE"); writeText(12, "fmt "); view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); view.setUint16(22, channels, true);
+    view.setUint32(24, rate, true); view.setUint32(28, rate * channels * 2, true);
+    view.setUint16(32, channels * 2, true); view.setUint16(34, 16, true);
+    writeText(36, "data"); view.setUint32(40, dataBytes, true);
+    const channelData = Array.from({ length: channels }, (_, channel) => buffer.getChannelData(channel));
+    let offset = 44;
+    for (let frame = 0; frame < frames; frame++) {
+      for (let channel = 0; channel < channels; channel++) {
+        const sample = Math.max(-1, Math.min(1, channelData[channel][frame]));
+        view.setInt16(offset, sample < 0 ? sample * 32768 : sample * 32767, true);
+        offset += 2;
+      }
+    }
+    return new Blob([arrayBuffer], { type: "audio/wav" });
+  }
+
+  async function renderEffect(blob, effect) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!AudioCtx || !Offline) throw new Error("Web Audio processing is not supported in this browser.");
+    const decodeContext = new AudioCtx();
+    try {
+      const encoded = await blob.arrayBuffer();
+      const input = await decodeContext.decodeAudioData(encoded);
+      const speed = effect === "deep" ? 0.82 : effect === "high" ? 1.22 : 1;
+      const echoTail = effect === "echo" ? Math.ceil(input.sampleRate * 1.6) : 0;
+      const outputLength = Math.ceil(input.length / speed) + echoTail;
+      const context = new Offline(input.numberOfChannels, outputLength, input.sampleRate);
+      const source = context.createBufferSource();
+      source.buffer = input;
+      source.playbackRate.value = speed;
+      let lastNode = source;
+
+      if (effect === "natural") {
+        const highPass = context.createBiquadFilter();
+        highPass.type = "highpass"; highPass.frequency.value = 75;
+        const compressor = context.createDynamicsCompressor();
+        compressor.threshold.value = -22; compressor.ratio.value = 2.5;
+        lastNode.connect(highPass); highPass.connect(compressor); lastNode = compressor;
+      } else if (effect === "deep" || effect === "high") {
+        const eq = context.createBiquadFilter();
+        eq.type = "peaking"; eq.frequency.value = effect === "deep" ? 180 : 2600;
+        eq.gain.value = effect === "deep" ? 2 : 1.5; eq.Q.value = 0.8;
+        lastNode.connect(eq); lastNode = eq;
+      } else if (effect === "radio") {
+        const highPass = context.createBiquadFilter(); highPass.type = "highpass"; highPass.frequency.value = 420;
+        const lowPass = context.createBiquadFilter(); lowPass.type = "lowpass"; lowPass.frequency.value = 2800;
+        const shaper = context.createWaveShaper();
+        const curve = new Float32Array(256);
+        for (let index = 0; index < curve.length; index++) {
+          const x = index * 2 / (curve.length - 1) - 1;
+          curve[index] = Math.tanh(2.4 * x);
+        }
+        shaper.curve = curve;
+        lastNode.connect(highPass); highPass.connect(lowPass); lowPass.connect(shaper); lastNode = shaper;
+      } else if (effect === "robot") {
+        const amplitude = context.createGain(); amplitude.gain.value = 0.65;
+        const modulator = context.createOscillator(); modulator.type = "square"; modulator.frequency.value = 30;
+        const depth = context.createGain(); depth.gain.value = 0.32;
+        const shaper = context.createWaveShaper();
+        const curve = new Float32Array(256);
+        for (let index = 0; index < curve.length; index++) {
+          const x = index * 2 / (curve.length - 1) - 1;
+          curve[index] = Math.tanh(3 * x);
+        }
+        shaper.curve = curve;
+        lastNode.connect(amplitude); amplitude.connect(shaper); shaper.connect(context.destination);
+        modulator.connect(depth); depth.connect(amplitude.gain);
+        modulator.start(0); modulator.stop(input.duration + 0.1);
+      } else if (effect === "echo") {
+        const dry = context.createGain(); dry.gain.value = 0.88;
+        const delay = context.createDelay(1.2); delay.delayTime.value = 0.26;
+        const feedback = context.createGain(); feedback.gain.value = 0.32;
+        const wet = context.createGain(); wet.gain.value = 0.45;
+        source.connect(dry); dry.connect(context.destination);
+        source.connect(delay); delay.connect(wet); wet.connect(context.destination);
+        delay.connect(feedback); feedback.connect(delay);
+      }
+
+      if (effect !== "echo" && effect !== "robot") lastNode.connect(context.destination);
+      source.start(0);
+      const rendered = await context.startRendering();
+      return makeWav(rendered);
+    } finally {
+      await decodeContext.close().catch(() => {});
+    }
+  }
+
+  processBtn.addEventListener("click", async () => {
+    if (!rawBlob || busy) return;
+    busy = true;
+    processBtn.disabled = true;
+    recordBtn.disabled = true;
+    document.querySelectorAll(".effect").forEach(button => button.disabled = true);
+    $("resultHint").textContent = "Processing on this device…";
+    try {
+      const processed = await renderEffect(rawBlob, selected);
+      if (outputUrl) URL.revokeObjectURL(outputUrl);
+      outputBlob = processed;
+      outputUrl = URL.createObjectURL(outputBlob);
+      preview.src = outputUrl;
+      preview.classList.remove("hidden");
+      $("resultHint").textContent = "Done — " + selected + " effect applied. Listen before sharing.";
+      $("share").disabled = false;
+      $("download").disabled = false;
+      setStatus("Effect applied successfully.");
+    } catch (error) {
+      $("resultHint").textContent = "Processing failed: " + error.message;
+      setStatus("Could not process this recording. Try a shorter clip or another browser.");
+    } finally {
+      busy = false;
+      processBtn.disabled = !rawBlob;
+      recordBtn.disabled = false;
+      document.querySelectorAll(".effect").forEach(button => button.disabled = false);
+    }
+  });
+
+  $("download").addEventListener("click", () => {
+    if (!outputBlob || !outputUrl) return;
+    const link = document.createElement("a");
+    link.href = outputUrl; link.download = "voice-fx-" + selected + ".wav";
+    document.body.appendChild(link); link.click(); link.remove();
+  });
+  $("share").addEventListener("click", async () => {
+    if (!outputBlob) return;
+    const file = new File([outputBlob], "voice-fx-" + selected + ".wav", { type: "audio/wav" });
+    try {
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "VOICE FX audio", text: "My transformed voice recording" });
+      } else {
+        $("resultHint").textContent = "File sharing is unavailable here. Save the WAV file, then attach it in WhatsApp.";
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") $("resultHint").textContent = "Sharing failed. Save the audio file and attach it in WhatsApp.";
+    }
+  });
+
+  window.addEventListener("pagehide", () => {
+    if (recordTimer) clearInterval(recordTimer);
+    if (recorder && recorder.state !== "inactive") {
+      try { recorder.stop(); } catch (_) {}
+    }
+    stopTracks();
+    if (outputUrl) URL.revokeObjectURL(outputUrl);
+  });
+
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  }
+})();
+</script>
+</body>
+</html>
